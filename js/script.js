@@ -116,6 +116,7 @@ function createWeighingCards() {
 // Variables globales para el gráfico
 let chartPoints = [];
 let chartConfig = {};
+let activeTooltipPoint = null;
 
 // Crear tooltip
 function createTooltip() {
@@ -132,9 +133,12 @@ function createTooltip() {
             color: white;
             font-size: 14px;
             pointer-events: none;
+            opacity: 0;
             display: none;
             z-index: 1000;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+            transform: translateY(-5px);
         `;
         document.body.appendChild(tooltip);
     }
@@ -142,8 +146,11 @@ function createTooltip() {
 }
 
 // Mostrar tooltip
-function showTooltip(x, y, data) {
+function showTooltip(canvasX, canvasY, data) {
     const tooltip = createTooltip();
+    const canvas = document.getElementById('weightChart');
+    const rect = canvas.getBoundingClientRect();
+    
     const formattedDate = new Date(data.date).toLocaleDateString('es-ES', { 
         day: '2-digit', 
         month: 'long', 
@@ -163,16 +170,35 @@ function showTooltip(x, y, data) {
     `;
     
     tooltip.style.display = 'block';
-    tooltip.style.left = (x + 15) + 'px';
-    tooltip.style.top = (y - 15) + 'px';
+    
+    // Posicionar el tooltip debajo del punto
+    const absoluteX = rect.left + canvasX + window.scrollX;
+    const absoluteY = rect.top + canvasY + window.scrollY;
+    
+    // Centrar horizontalmente y colocar debajo del punto
+    tooltip.style.left = (absoluteX - tooltip.offsetWidth / 2) + 'px';
+    tooltip.style.top = (absoluteY + 15) + 'px';
+    
+    // Animar la aparición
+    setTimeout(() => {
+        tooltip.style.opacity = '1';
+        tooltip.style.transform = 'translateY(0)';
+    }, 10);
+    
+    activeTooltipPoint = data;
 }
 
 // Ocultar tooltip
 function hideTooltip() {
     const tooltip = document.getElementById('chartTooltip');
     if (tooltip) {
-        tooltip.style.display = 'none';
+        tooltip.style.opacity = '0';
+        tooltip.style.transform = 'translateY(-5px)';
+        setTimeout(() => {
+            tooltip.style.display = 'none';
+        }, 300);
     }
+    activeTooltipPoint = null;
 }
 
 // Crear gráfica simple con Canvas
@@ -317,12 +343,21 @@ function setupChartInteractions() {
             );
             
             if (distance <= clickRadius) {
-                showTooltip(e.clientX, e.clientY, point.data);
+                // Si el mismo punto está activo, ocultarlo
+                if (activeTooltipPoint && activeTooltipPoint.date === point.data.date) {
+                    hideTooltip();
+                } else {
+                    // Mostrar tooltip del nuevo punto
+                    showTooltip(point.x, point.y, point.data);
+                }
                 return;
             }
         }
         
-        hideTooltip();
+        // Si se hace clic fuera de los puntos, ocultar tooltip
+        if (activeTooltipPoint) {
+            hideTooltip();
+        }
     });
     
     // Hover effect
